@@ -1,0 +1,29 @@
+# ---- Foundry ----
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/deployments/local-*
+contracts/.forge-snapshots/
+
+# ---- Node ----
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# ---- Environment / secrets (see .env.example) ----
+.env
+.env.*
+!.env.example
+!.env.testnet.example
+
+# ---- Local runtime state ----
+dashboard/state/
+.orchestrator-state.json
+*.log
+
+# ---- Editor / OS ----
+.DS_Store
+.idea/
+.vscode/

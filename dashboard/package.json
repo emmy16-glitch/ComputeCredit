@@ -1,0 +1,11 @@
+{
+  "name": "@computecredit/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only ComputeCredit dashboard (spec §12). Serves a static page plus a JSON API backed by onchain state.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}

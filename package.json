@@ -1,0 +1,33 @@
+{
+  "name": "computecredit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ComputeCredit: one-job compute advances for the agent economy, serviced from routed agent revenue (OKX Dev Day hackathon build)",
+  "workspaces": [
+    "orchestrator",
+    "dashboard",
+    "bot"
+  ],
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "demo": "bash scripts/demo-local.sh",
+    "dashboard": "bash scripts/dashboard.sh",
+    "orchestrator": "node --experimental-strip-types orchestrator/index.ts",
+    "bot": "node --experimental-strip-types bot/telegram.ts",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test",
+    "contracts:test:ci": "cd contracts && FOUNDRY_PROFILE=ci forge test",
+    "typecheck": "npm --workspace orchestrator run typecheck",
+    "contracts:coverage": "cd contracts && forge coverage"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  }
+}

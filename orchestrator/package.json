@@ -1,0 +1,28 @@
+{
+  "name": "@computecredit/orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ComputeCredit orchestrator: quote, finance and route agent compute revenue (spec §11)",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "infer": "node --experimental-strip-types index.ts infer",
+    "pay": "node --experimental-strip-types index.ts pay",
+    "pool": "node --experimental-strip-types index.ts pool",
+    "score": "node --experimental-strip-types index.ts score",
+    "history": "node --experimental-strip-types index.ts history",
+    "monitor": "node --experimental-strip-types index.ts monitor",
+    "demo": "node --experimental-strip-types index.ts demo",
+    "bot": "node --experimental-strip-types ../bot/telegram.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
+  }
+}

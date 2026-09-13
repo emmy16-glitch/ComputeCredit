@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ComputeCredit — read-only dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: #141a2e;
+        --panel-2: #1b2338;
+        --line: #26314d;
+        --text: #e8ecf7;
+        --muted: #97a3bf;
+        --green: #35d07f;
+        --amber: #f0b429;
+        --red: #ef5f5f;
+        --blue: #6aa8ff;
+        --violet: #b48cff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 20% -10%, #132043 0, transparent 60%), var(--bg);
+        color: var(--text);
+        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      header {
+        padding: 22px 26px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline; justify-content: space-between;
+      }
+      h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
+      h1 span { color: var(--muted); font-weight: 400; font-size: 14px; }
+      .pill {
+        display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px;
+        border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); margin-left: 6px;
+      }
+      main { padding: 20px 26px 60px; max-width: 1400px; margin: 0 auto; }
+      section { margin-bottom: 26px; }
+      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.9px; color: var(--muted); margin: 0 0 12px; }
+      .grid { display: grid; gap: 14px; }
+      .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+      .card {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px;
+      }
+      .card.liquidity { border-left: 3px solid var(--green); }
+      .card.receivable { border-left: 3px solid var(--blue); }
+      .card.conditional { border-left: 3px solid var(--violet); }
+      .card .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+      .card .value { font-size: 26px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+      .card .note { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.6px; }
+      td.mono, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+      tr:last-child td { border-bottom: none; }
+      .status { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); }
+      .status.active { color: var(--green); border-color: #1f4d38; background: #10281f; }
+      .status.settled { color: var(--blue); border-color: #1f3a5d; background: #101d2f; }
+      .status.defaulted { color: var(--red); border-color: #55242a; background: #2a1416; }
+      .status.expired { color: var(--amber); border-color: #574417; background: #2a2312; }
+      .status.none { color: var(--muted); }
+      .bar { height: 7px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+      .bar > i { display: block; height: 100%; background: var(--green); }
+      .bar.lien > i { background: var(--violet); }
+      .notice {
+        border: 1px solid #4a3a17; background: #241d0f; color: #f2d79a; border-radius: 12px; padding: 14px 16px; font-size: 13.5px;
+      }
+      .notice strong { color: #ffd884; }
+      .error { border: 1px solid #55242a; background: #2a1416; color: #ffb4b4; border-radius: 12px; padding: 14px 16px; }
+      a { color: var(--blue); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .row { display: flex; gap: 18px; flex-wrap: wrap; }
+      .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13px; }
+      .kv dt { color: var(--muted); }
+      .kv dd { margin: 0; }
+      .footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; }
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>
+        ComputeCredit <span>— one-job compute advances, serviced from routed agent revenue</span>
+        <span class="pill" id="chain-pill">chain …</span>
+        <span class="pill" id="fresh-pill">loading…</span>
+      </h1>
+      <div class="mono" id="rpc-pill"></div>
+    </header>
+
+    <main>
+      <div id="error"></div>
+
+      <section>
+        <h2>Pool state — three strictly separate value classes</h2>
+        <div class="grid cols-3">
+          <div class="card liquidity">
+            <div class="label">Actual vault liquidity (idle)</div>
+            <div class="value" id="idle">–</div>
+            <div class="note">Immediately withdrawable USDC held by the vault. This is the only value that is liquid today.</div>
+          </div>
+          <div class="card receivable">
+            <div class="label">Outstanding principal (receivable)</div>
+            <div class="value" id="outstanding">–</div>
+            <div class="note">Unserviced principal of live advances. A claim on future revenue — not liquidity, and not withdrawable by lenders.</div>
+          </div>
+          <div class="card conditional">
+            <div class="label">Conditional lien targets</div>
+            <div class="value" id="liens">–</div>
+            <div class="note">1.5× shortfall on defaulted advances. Recoverable only if the agent earns again through the registered route.</div>
+          </div>
+        </div>
+        <p class="note" style="color: var(--muted); margin: 10px 2px 0; font-size: 12.5px">
+          These three numbers are deliberately never added together into a single “assets” figure, and no lender return is implied.
+        </p>
+      </section>
+
+      <section>
+        <h2>Pool metrics</h2>
+        <div class="grid cols-4">
+          <div class="card"><div class="label">Total pool shares</div><div class="value" id="shares">–</div><div class="note" id="share-price">–</div></div>
+          <div class="card"><div class="label">Active advances</div><div class="value" id="active-count">–</div><div class="note">One active advance per borrower</div></div>
+          <div class="card"><div class="label">Utilisation</div><div class="value" id="util">–</div><div class="note">Outstanding ÷ (idle + outstanding)</div></div>
+          <div class="card"><div class="label">Routed revenue volume</div><div class="value" id="routed">–</div><div class="note" id="routed-serviced">–</div></div>
+        </div>
+      </section>
+
+      <section class="split">
+        <div>
+          <h2>Lifetime flows</h2>
+          <div class="card">
+            <table>
+              <tbody id="lifetime"></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2>Configuration</h2>
+          <div class="card">
+            <dl class="kv" id="config"></dl>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Advances</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Borrower</th><th>Status</th><th>Principal</th><th>Serviced</th><th>Remaining</th>
+                <th>Due</th><th>Score / tier limit</th><th>Lien</th><th>Job hash</th>
+              </tr>
+            </thead>
+            <tbody id="advances"><tr><td colspan="9">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Lenders</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>Lender</th><th>Shares</th><th>% of pool</th><th>Idle claim</th><th>Max withdrawable now</th></tr>
+            </thead>
+            <tbody id="lenders"><tr><td colspan="5">loading…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note" style="color: var(--muted); margin: 10px 2px 0; font-size: 12.5px">
+          A lender may withdraw only their proportional share of <em>idle</em> USDC. Outstanding advances remain obligations of borrowers.
+        </p>
+      </section>
+
+      <section>
+        <h2>Recent onchain events</h2>
+        <div class="card">
+          <table>
+            <thead><tr><th>Block</th><th>Event</th><th>Details</th><th>Transaction</th></tr></thead>
+            <tbody id="events"><tr><td colspan="4">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Demo trust assumptions (MVP)</h2>
+        <div class="notice" id="trust">
+          <strong>This is a prototype, not a trustless production lending system.</strong>
+        </div>
+      </section>
+
+      <p class="footer">
+        Read-only dashboard. It performs <span class="mono">eth_call</span> reads only, holds no keys and sends no transactions.
+        Values come from contract state at the latest block; refresh is polled from <span class="mono">/api/state</span>.
+      </p>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const short = (value, size = 10) =>
+        typeof value === "string" && value.startsWith("0x") ? `${value.slice(0, size)}…${value.slice(-6)}` : value;
+      const link = (href, text) => (href ? `<a href="${href}" target="_blank" rel="noreferrer">${text}</a>` : text);
+      const date = (seconds) => (seconds ? new Date(seconds * 1000).toLocaleString() : "—");
+
+      function statusBadge(status) {
+        return `<span class="status ${status}">${status}</span>`;
+      }
+
+      function render(state) {
+        if (!state.ok) {
+          $("error").innerHTML = `<div class="error"><strong>Dashboard error:</strong> ${state.error ?? "unknown"}</div>`;
+          return;
+        }
+        $("error").innerHTML = "";
+        $("chain-pill").textContent = `chain ${state.config.chainId}`;
+        $("fresh-pill").textContent = `updated ${new Date(state.generatedAt).toLocaleTimeString()}`;
+        $("rpc-pill").textContent = state.config.rpcUrl;
+
+        $("idle").textContent = `${state.pool.actualLiquidityUsdc} USDC`;
+        $("outstanding").textContent = `${state.pool.outstandingReceivablesUsdc} USDC`;
+        $("liens").textContent = `${state.pool.conditionalLienTargetsUsdc} USDC`;
+
+        $("shares").textContent = state.pool.totalShares;
+        const price = state.pool.totalShares !== "0"
+          ? (Number(state.pool.actualLiquidityUsdc) / Number(state.pool.totalShares) * 1e6).toFixed(6)
+          : "0";
+        $("share-price").textContent = `idle assets per share: ${price} USDC`;
+        $("active-count").textContent = state.pool.activeAdvanceCount;
+        $("util").textContent = `${state.pool.utilizationPct}%`;
+        $("routed").textContent = `${state.pool.routedVolumeUsdc} USDC`;
+        $("routed-serviced").textContent = `serviced ${state.pool.routedServicedUsdc} · lien captured ${state.pool.routedLienCapturedUsdc}`;
+
+        const lifetime = state.pool.lifetime;
+        $("lifetime").innerHTML = [
+          ["Principal issued (lifetime)", `${lifetime.issuedUsdc} USDC`],
+          ["Principal serviced (lifetime)", `${lifetime.servicedUsdc} USDC`],
+          ["Recorded shortfall (unrecovered defaults)", `${lifetime.shortfallUsdc} USDC`],
+          ["Lien recovered (conditional)", `${lifetime.lienRecoveredUsdc} USDC`],
+        ]
+          .map(([label, value]) => `<tr><td>${label}</td><td class="mono">${value}</td></tr>`)
+          .join("");
+
+        const a = state.config.addresses;
+        const al = state.config.addressLinks ?? {};
+        $("config").innerHTML = [
+          ["Vault", link(al.vault, `<span class="mono">${a.vault}</span>`)],
+          ["Revenue router", link(al.router, `<span class="mono">${a.router}</span>`)],
+          ["Trust passport", link(al.passport, `<span class="mono">${a.passport}</span>`)],
+          ["Provider registry", link(al.registry, `<span class="mono">${a.registry}</span>`)],
+          ["USDC token", link(al.usdc, `<span class="mono">${a.usdc}</span>`)],
+          [
+            "Provider",
+            state.provider
+              ? `${link(al.provider, `<span class="mono">${short(state.provider.address, 12)}</span>`)} — ${
+                  state.provider.active ? "active" : "inactive"
+                }, ${state.provider.pricePerJobUsdc} USDC per job, service ${
+                  typeof state.provider.serviceId === "string" && state.provider.serviceId.startsWith("0x")
+                    ? short(state.provider.serviceId, 12)
+                    : state.provider.serviceId
+                }`
+              : "not configured",
+          ],
+          ["Explorer", state.config.explorerBaseUrl || "not configured (no event links)"],
+        ]
+          .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
+          .join("");
+
+        $("advances").innerHTML = state.advances.length
+          ? state.advances
+              .map((adv) => {
+                const pct = Number(adv.principal) === 0 ? 0 : (Number(adv.serviced) / Number(adv.principal)) * 100;
+                const lienPct = Number(adv.lienTarget) === 0 ? 0 : (Number(adv.lienCaptured) / Number(adv.lienTarget)) * 100;
+                return `<tr>
+                  <td class="mono">${short(adv.borrower, 12)}</td>
+                  <td>${statusBadge(adv.status)}</td>
+                  <td class="mono">${adv.principal}
+                    <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+                    <span style="color:var(--muted);font-size:11.5px">serviced ${pct.toFixed(1)}%</span>
+                  </td>
+                  <td class="mono">${adv.serviced}</td>
+                  <td class="mono">${adv.remaining}</td>
+                  <td class="mono">${date(adv.dueAt)}</td>
+                  <td class="mono">${adv.score} · tier ${adv.tier} (limit ${adv.tierLimit})</td>
+                  <td class="mono">${
+                    adv.lienActive
+                      ? `${adv.lienCaptured} / ${adv.lienTarget}
+                         <div class="bar lien"><i style="width:${lienPct.toFixed(1)}%"></i></div>
+                         <span style="color:var(--muted);font-size:11.5px">capture ${adv.revenueLienBps} bps</span>`
+                      : "—"
+                  }</td>
+                  <td class="mono">${short(adv.jobHash, 12)}</td>
+                </tr>`;
+              })
+              .join("")
+          : `<tr><td colspan="9">No advances yet. Run <span class="mono">bash scripts/demo-local.sh</span>.</td></tr>`;
+
+        $("lenders").innerHTML = state.lenders.length
+          ? state.lenders
+              .map(
+                (lender) => `<tr>
+                  <td class="mono">${short(lender.lender, 12)}</td>
+                  <td class="mono">${lender.shares}</td>
+                  <td class="mono">${lender.sharePct}%</td>
+                  <td class="mono">${lender.idleClaim} USDC</td>
+                  <td class="mono">${lender.maxWithdrawable} USDC</td>
+                </tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="5">No deposits yet.</td></tr>`;
+
+        $("events").innerHTML = state.events.length
+          ? state.events
+              .map(
+                (event) => `<tr>
+                  <td class="mono">${event.block}</td>
+                  <td class="mono">${event.name}</td>
+                  <td class="mono">${event.args
+                    .map((value) => (typeof value === "string" && value.startsWith("0x") ? short(value, 10) : value))
+                    .join(" · ")}</td>
+                  <td class="mono">${link(event.explorer, short(event.txHash, 12))}</td>
+                </tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="4">No events yet.</td></tr>`;
+
+        $("trust").innerHTML =
+          `<strong>This is a prototype, not a trustless production lending system.</strong><ul>` +
+          state.trustAssumptions.map((item) => `<li>${item}</li>`).join("") +
+          `</ul>Production would replace these assumptions with agent-signed EIP-712 requests, wallet policy rules, ` +
+          `multiple independent attesters, verified provider quotes or buyer escrow, and facilitator-level split settlement.`;
+      }
+
+      async function refresh() {
+        try {
+          const response = await fetch("api/state", { cache: "no-store" });
+          render(await response.json());
+        } catch (error) {
+          $("error").innerHTML = `<div class="error"><strong>Cannot reach the dashboard API:</strong> ${error.message}</div>`;
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 5000);
+    </script>
+  </body>
+</html>

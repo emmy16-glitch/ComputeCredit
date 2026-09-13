@@ -1,0 +1,47 @@
+# ComputeCredit — Foundry configuration
+# Spec reference: ComputeCredit_v2.pdf §18 (Repository structure), §10 (Security model)
+#
+# Dependencies are vendored inside contracts/lib so the repository builds with a
+# single command and no submodule step:
+#   contracts/lib/forge-std               v1.16.2
+#   contracts/lib/openzeppelin-contracts  v5.1.0
+
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+bytecode_hash = "none"
+cbor_metadata = false
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+gas_reports = ["ComputeCreditVault", "TrustPassport", "ProviderRegistry", "RevenueRouter", "WorkEscrow"]
+
+[profile.default.fuzz]
+runs = 512
+
+[profile.default.invariant]
+runs = 64
+depth = 64
+fail_on_revert = false
+
+# CI profile: heavier fuzzing / deeper invariant campaigns
+[profile.ci]
+verbosity = 2
+fuzz = { runs = 2048 }
+invariant = { runs = 256, depth = 128, fail_on_revert = false }
+
+# Local anvil demo profile (chain id 31337)
+[profile.demo]
+verbosity = 2
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"

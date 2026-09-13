@@ -1,0 +1,8 @@
+{
+  "providerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "serviceId": "haiku-v1",
+  "pricePerJobUsdc": "0.02",
+  "endpoint": "https://provider.example/infer",
+  "active": true,
+  "_comment": "Spec §11.2 demo provider configuration. Real values come from environment variables (PROVIDER_ADDRESS, PROVIDER_SERVICE_ID, PROVIDER_PRICE_PER_JOB_USDC, PROVIDER_ENDPOINT); this file only supplies local development defaults. The provider address must match the ProviderRegistry entry for the job hash to validate."
+}

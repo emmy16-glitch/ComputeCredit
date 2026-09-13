@@ -1,0 +1,3 @@
+# Deployment records are written here by forge scripts (contracts/deployments/<chainId>.json).
+# This placeholder keeps the directory in git so `forge script script/Deploy.s.sol` works
+# from a clean checkout.
