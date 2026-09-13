@@ -1,0 +1,24 @@
+{
+  "name": "computecredit",
+  "version": "3.0.0",
+  "private": true,
+  "description": "ComputeCredit v3 — one-job compute advances serviced from routed agent revenue",
+  "type": "module",
+  "scripts": {
+    "orchestrator": "tsx orchestrator/src/index.ts",
+    "keeper": "tsx orchestrator/src/keeper.ts",
+    "bot": "tsx bot/src/telegram.ts",
+    "typecheck": "tsc --noEmit",
+    "dashboard": "npx serve dashboard/public -l 3000"
+  },
+  "dependencies": {
+    "viem": "^2.21.0",
+    "dotenv": "^16.4.5",
+    "grammy": "^1.27.0",
+    "tsx": "^4.16.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "@types/node": "^22.7.4"
+  }
+}

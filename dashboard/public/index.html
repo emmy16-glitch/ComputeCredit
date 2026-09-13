@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ComputeCredit v3 — pool monitor</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+  .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+  .warn { background: #fff8e1; border-color: #f0c36d; }
+  code { background: #f4f4f4; padding: 2px 6px; border-radius: 6px; }
+  label { display:block; margin:.5rem 0 .25rem; font-weight:600 }
+  input { width:100%; padding:.5rem; }
+  button { margin-top:.75rem; padding:.6rem 1rem; cursor:pointer }
+</style>
+</head>
+<body>
+<h1>ComputeCredit v3 — read-only monitor</h1>
+<div class="card warn"><strong>Demo trust assumptions:</strong> approved orchestrator + allowlisted revenue router.
+Lenders are <em>not</em> guaranteed returns. Lien captures only revenue passing through the registered route.</div>
+<div class="card">
+  <label>RPC URL</label><input id="rpc" value="https://testrpc.xlayer.tech/terigon" />
+  <label>Vault address</label><input id="vault" placeholder="0x..." />
+  <button id="load">Load pool state</button>
+  <pre id="out">idle: — / outstanding: — / shares supply: —</pre>
+</div>
+<script type="module">
+import { createPublicClient, http, formatUnits } from "https://esm.sh/viem@2.21.0";
+const vaultAbi = [
+  { name:"totalAssets", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+  { name:"totalOutstanding", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+  { name:"totalSupply", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+];
+document.getElementById("load").onclick = async () => {
+  const rpc = document.getElementById("rpc").value;
+  const vault = document.getElementById("vault").value;
+  const out = document.getElementById("out");
+  try {
+    const pub = createPublicClient({ transport: http(rpc) });
+    const [idle, outstanding, supply] = await Promise.all([
+      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalAssets" }),
+      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalOutstanding" }),
+      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalSupply" }),
+    ]);
+    // USDC 6 decimals for idle/outstanding; shares 18-ish via ERC4626 (display raw + formatted guess)
+    out.textContent = `idle (USDC): ${formatUnits(idle, 6)}\noutstanding (USDC): ${formatUnits(outstanding, 6)}\nshare supply (raw): ${supply}\n\nidle = real liquidity. outstanding = receivables (not withdrawable). lien targets are conditional, never added to assets.`;
+  } catch (e) { out.textContent = "error: " + e.message; }
+};
+</script>
+</body>
+</html>
