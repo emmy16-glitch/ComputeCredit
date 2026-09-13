@@ -8,42 +8,98 @@
   body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
   .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
   .warn { background: #fff8e1; border-color: #f0c36d; }
-  code { background: #f4f4f4; padding: 2px 6px; border-radius: 6px; }
+  code { background: #f4f4f4; padding: 2px 6px; border-radius: 6px; word-break: break-all; }
   label { display:block; margin:.5rem 0 .25rem; font-weight:600 }
-  input { width:100%; padding:.5rem; }
+  input { width:100%; padding:.5rem; box-sizing: border-box; }
   button { margin-top:.75rem; padding:.6rem 1rem; cursor:pointer }
+  pre { white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <h1>ComputeCredit v3 — read-only monitor</h1>
 <div class="card warn"><strong>Demo trust assumptions:</strong> approved orchestrator + allowlisted revenue router.
-Lenders are <em>not</em> guaranteed returns. Lien captures only revenue passing through the registered route.</div>
+Lenders are <em>not</em> guaranteed returns. Lien captures only revenue passing through the registered route.
+Idle, outstanding and lien targets are shown separately — never combined into one number.</div>
+
 <div class="card">
+  <h3>Connection</h3>
   <label>RPC URL</label><input id="rpc" value="https://testrpc.xlayer.tech/terigon" />
   <label>Vault address</label><input id="vault" placeholder="0x..." />
-  <button id="load">Load pool state</button>
-  <pre id="out">idle: — / outstanding: — / shares supply: —</pre>
+  <label>Explorer base URL (for tx/address links)</label><input id="explorer" value="https://www.oklink.com/x-layer-testnet" />
 </div>
+
+<div class="card">
+  <h3>Pool</h3>
+  <button id="load">Load pool state</button>
+  <pre id="out">idle: — / outstanding: — / share supply: —</pre>
+</div>
+
+<div class="card">
+  <h3>Borrower</h3>
+  <label>Passport / Router / Vault share the same borrower address</label>
+  <input id="who" placeholder="0x borrower…" />
+  <label>Passport address</label><input id="passport" placeholder="0x..." />
+  <button id="loadWho">Load borrower state</button>
+  <pre id="outWho">score: — / active advance: — / lien: —</pre>
+</div>
+
 <script type="module">
 import { createPublicClient, http, formatUnits } from "https://esm.sh/viem@2.21.0";
 const vaultAbi = [
   { name:"totalAssets", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
   { name:"totalOutstanding", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
   { name:"totalSupply", type:"function", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
+  { name:"activeAdvanceId", type:"function", stateMutability:"view", inputs:[{name:"b",type:"address"}], outputs:[{type:"uint256"}] },
+  { name:"remainingOf", type:"function", stateMutability:"view", inputs:[{name:"id",type:"uint256"}], outputs:[{type:"uint256"}] },
+  { name:"lienTarget", type:"function", stateMutability:"view", inputs:[{name:"b",type:"address"}], outputs:[{type:"uint256"}] },
+  { name:"lienCaptured", type:"function", stateMutability:"view", inputs:[{name:"b",type:"address"}], outputs:[{type:"uint256"}] },
 ];
-document.getElementById("load").onclick = async () => {
-  const rpc = document.getElementById("rpc").value;
-  const vault = document.getElementById("vault").value;
-  const out = document.getElementById("out");
+const passportAbi = [
+  { name:"score", type:"function", stateMutability:"view", inputs:[{name:"a",type:"address"}], outputs:[{type:"uint256"}] },
+  { name:"maxAdvanceForScore", type:"function", stateMutability:"view", inputs:[{name:"s",type:"uint256"}], outputs:[{type:"uint256"}] },
+];
+const $ = (id) => document.getElementById(id);
+const pub = () => createPublicClient({ transport: http($("rpc").value) });
+const link = (kind, v) => `${$("explorer").value.replace(/\/$/,"")}/${kind}/${v}`;
+
+$("load").onclick = async () => {
+  const out = $("out"), vault = $("vault").value;
   try {
-    const pub = createPublicClient({ transport: http(rpc) });
+    const c = pub();
     const [idle, outstanding, supply] = await Promise.all([
-      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalAssets" }),
-      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalOutstanding" }),
-      pub.readContract({ address: vault, abi: vaultAbi, functionName: "totalSupply" }),
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "totalAssets" }),
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "totalOutstanding" }),
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "totalSupply" }),
     ]);
-    // USDC 6 decimals for idle/outstanding; shares 18-ish via ERC4626 (display raw + formatted guess)
-    out.textContent = `idle (USDC): ${formatUnits(idle, 6)}\noutstanding (USDC): ${formatUnits(outstanding, 6)}\nshare supply (raw): ${supply}\n\nidle = real liquidity. outstanding = receivables (not withdrawable). lien targets are conditional, never added to assets.`;
+    out.textContent =
+      `idle (USDC, withdrawable liquidity): ${formatUnits(idle, 6)}\n` +
+      `outstanding (USDC, receivables — NOT liquidity): ${formatUnits(outstanding, 6)}\n` +
+      `share supply (raw): ${supply}\n\nvault: ${link("address", vault)}`;
+  } catch (e) { out.textContent = "error: " + e.message; }
+};
+
+$("loadWho").onclick = async () => {
+  const out = $("outWho"), vault = $("vault").value, passport = $("passport").value, who = $("who").value;
+  try {
+    const c = pub();
+    const [score, lim, activeId] = await Promise.all([
+      c.readContract({ address: passport, abi: passportAbi, functionName: "score", args: [who] }),
+      c.readContract({ address: passport, abi: passportAbi, functionName: "maxAdvanceForScore",
+        args: [await c.readContract({ address: passport, abi: passportAbi, functionName: "score", args: [who] })] }),
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [who] }),
+    ]);
+    let extra = "";
+    if (activeId !== 0n) {
+      const rem = await c.readContract({ address: vault, abi: vaultAbi, functionName: "remainingOf", args: [activeId] });
+      extra = `\nactive advance #${activeId} remaining: ${formatUnits(rem, 6)} USDC`;
+    }
+    const [target, captured] = await Promise.all([
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "lienTarget", args: [who] }),
+      c.readContract({ address: vault, abi: vaultAbi, functionName: "lienCaptured", args: [who] }),
+    ]);
+    if (target > 0n) extra += `\nlien (conditional): ${formatUnits(captured, 6)} / ${formatUnits(target, 6)} USDC`;
+    out.textContent =
+      `score: ${score} (max advance ${formatUnits(lim, 6)} USDC)\nactiveAdvanceId: ${activeId}${extra}\n\nborrower: ${link("address", who)}`;
   } catch (e) { out.textContent = "error: " + e.message; }
 };
 </script>

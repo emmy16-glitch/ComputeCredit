@@ -14,11 +14,15 @@ This is a clean-room v3 rewrite of the `ComputeCredit_v2.pdf` (Manus AI) spec. W
 ```
 contracts/src/  ComputeCreditVault.sol  TrustPassport.sol  ProviderRegistry.sol
                 RevenueRouter.sol  WorkEscrow.sol (stretch)  MockUSDC.sol
-contracts/test/ Base.t.sol (shared fixture)  ComputeCredit.t.sol (24)  WorkEscrow.t.sol (10)  Fuzz.t.sol (4)
-contracts/script/ Deploy.s.sol
+contracts/test/ Base.t.sol (shared fixture)  ComputeCredit.t.sol (24)  WorkEscrow.t.sol (10)
+                Fuzz.t.sol (4)  Security.t.sol (8, incl. adversarial-token reentrancy proofs)
+                Invariants.t.sol (6 handler-fuzzed stateful invariants)  mocks/ReentrantUSDC.sol
+contracts/script/ Deploy.s.sol  DemoLocal.s.sol (two-phase local demo)
+contracts/deployments/ 31337-demo.json + phase1/2-txs.json (local demo records)
+scripts/demo-local.sh   (anvil lifecycle + time-warp + broadcast + record)
 orchestrator/src/ agent.ts  index.ts (CLI)  keeper.ts (penalize monitor)  config.ts
 bot/src/ telegram.ts        (/infer /invest /withdraw /position /pool /score /id /history /faucet)
-dashboard/public/ index.html            (read-only pool monitor)
+dashboard/public/ index.html            (read-only pool + borrower monitor)
 docs/ ARCHITECTURE.md  THREAT_MODEL.md  DEMO.md  DEPLOYMENT.md  V2_CRITIQUE.md
 ```
 
@@ -27,10 +31,13 @@ docs/ ARCHITECTURE.md  THREAT_MODEL.md  DEMO.md  DEPLOYMENT.md  V2_CRITIQUE.md
 ```bash
 export PATH="$HOME/.foundry/bin:$PATH"
 forge build
-forge test                      # 38/38 expected (24 core + 10 escrow + 4 fuzz)
+forge test                      # 47/47 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite)
 npm install
 npm run typecheck               # tsc clean
 cp .env.example .env            # fill keys + addresses
+
+# local end-to-end demo (anvil): deploy + happy path + partial + default + recovery, all asserted onchain
+bash scripts/demo-local.sh
 
 # deploy (X Layer testnet 1952) — full runbook: docs/DEPLOYMENT.md
 forge script contracts/script/Deploy.s.sol \
@@ -80,6 +87,14 @@ provider/buyer payment transport (simulated in the demo). We never claim facilit
 - Not regulated factoring; no guaranteed recovery; pool shares float with defaults/repayments.
 
 ## Shipped vs planned
-- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 38 tests.
+- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 47 tests + scripted local end-to-end demo with onchain assertions.
 - **Shipped (stretch, outside core claim):** WorkEscrow buyer-escrow module with router-integrated release.
 - **Planned (not built):** compute futures, cross-wallet identity, facilitator auto-settlement.
+
+## Attribution
+- Base spec: `ComputeCredit_v2.pdf` (Manus AI) — critiqued in `docs/V2_CRITIQUE.md`.
+- Draft PR #1 (arena-ai-coding-agent) was reviewed in full: its v2.1 contracts were deliberately
+  **not** merged (v3 fixes their economics and share accounting), but four of its ideas were
+  ported and are credited in code: adversarial `ReentrantUSDC` mock, handler-based invariant
+  suite, two-phase local demo (`DemoLocal` + `demo-local.sh`), and the richer read-only dashboard.
+  The PR was closed as superseded.

@@ -30,7 +30,8 @@ Production: borrower signatures (already in the contract), wallet policy, escrow
 Reliable vault + correct router + honest boundaries beat more half-built modules."
 
 ## Rehearsal checklist
-- [ ] `forge test` green (38/38). `npm run typecheck` clean.
+- [ ] `forge test` green (47/47). `npm run typecheck` clean.
+- [ ] `bash scripts/demo-local.sh` prints ALL LOCAL DEMO ASSERTIONS PASSED.
 - [ ] Contracts deployed, addresses in `.env` + README.
 - [ ] Lender + buyer wallets funded (test USDC + OKB gas).
 - [ ] Provider registered, price confirmed onchain.

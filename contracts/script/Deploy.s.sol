@@ -48,7 +48,7 @@ contract Deploy is Script {
     }
 
     function _config() internal view returns (Config memory c) {
-        c.key = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7b4bd3ff80));
+        c.key = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         c.deployer = vm.addr(c.key);
         c.usdcAddr = vm.envOr("USDC", address(0));
         c.operator = vm.envOr("OPERATOR", c.deployer);

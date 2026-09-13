@@ -9,6 +9,16 @@
   - Option B: set `USDC=` to any 6-decimal test stable you control.
 - [ ] One provider payment round trip on testnet (plain transfer). If this fails, stop — do not build optional modules.
 
+## Local end-to-end (proves the whole loop before testnet)
+```bash
+bash scripts/demo-local.sh   # starts anvil if needed; STOP_ANVIL=1 to shut it down after
+```
+This broadcasts `DemoLocalPhase1` (deploy, 50 USDC deposit, happy-path settle, partial
+servicing, default candidate), warps past the 12h window, then broadcasts `DemoLocalPhase2`
+(default, lien recovery, final onchain assertions). Records land in
+`contracts/deployments/31337-demo.json` + `phase1/2-txs.json`. It must end with
+`ALL LOCAL DEMO ASSERTIONS PASSED` — any revert is a ship-blocker.
+
 ## Deploy
 ```bash
 cp .env.example .env   # fill OPERATOR_PRIVATE_KEY, PROVIDER_*, SERVICE_ID
