@@ -27,7 +27,7 @@ intent — only engineering choices.
 | 9 | Revenue source "registered" vaguely; change-mid-advance unspecified | Borrower swaps wallet mid-loan, lien stranded | `revenueSourceOf` locked while advance active; new advance blocked until lien cleared (`RevenueSourceLocked`). |
 | 10 | x402/X-Layer integration hand-waved ("confirm SDK before deployment") | Judges will ask; CDP facilitator does **not** support X Layer (Base/Polygon/Solana/Arbitrum/World only, verified Sep 2026) | Honest split: demo router enforces the split **onchain on X Layer (chain 1952)**; facilitator/x402 HTTP leg is the **provider-pay / buyer-pay transport**, documented as simulation with production migration path. Never claim facilitator settles on X Layer. |
 | 11 | No pause, no custom errors, events unindexed | Demo-day bug = frozen funds; debugging without indexed events is painful | `Pausable`, custom errors, indexed events on every transition, `Ownable` admin. |
-| 12 | Repo was PDF-only | Nothing to run, test, or deploy | This repo: 4 contracts + mock, 24 Foundry tests, deploy script, TS orchestrator, Telegram bot, static dashboard, 4 docs. |
+| 12 | Repo was PDF-only | Nothing to run, test, or deploy | This repo: 6 contracts + mock, 47 Foundry tests (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite), deploy script, two-phase local demo, TS orchestrator, Telegram bot, static dashboard, 5 docs. |
 
 ## Deliberately NOT changed (out of scope for hackathon)
 - Single active advance per borrower (correct risk cap for MVP).

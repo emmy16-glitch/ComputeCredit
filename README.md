@@ -34,7 +34,7 @@ forge build
 forge test                      # 47/47 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite)
 npm install
 npm run typecheck               # tsc clean
-cp .env.example .env            # fill keys + addresses
+cp .env.example .env            # local defaults work as-is; fill keys + addresses for testnet
 
 # local end-to-end demo (anvil): deploy + happy path + partial + default + recovery, all asserted onchain
 bash scripts/demo-local.sh
@@ -65,6 +65,20 @@ So the revenue split is enforced **onchain by `RevenueRouter` on X Layer**; x402
 provider/buyer payment transport (simulated in the demo). We never claim facilitator settlement on X Layer.
 
 ## Deployed addresses (fill after deploy)
+
+Local anvil demo (`bash scripts/demo-local.sh`, chain 31337 — regenerated each run,
+see `contracts/deployments/31337-demo.json`):
+
+| Contract | Address |
+|---|---|
+| USDC / MockUSDC | `0x4A679253410272dd5232B3Ff7cF5dbB88f295319` |
+| ComputeCreditVault | `0xc5a5C42992dECbae36851359345FE25997F5C42d` |
+| TrustPassport | `0x09635F643e140090A9A8Dcd712eD6285858ceBef` |
+| ProviderRegistry | `0x7a2088a1bFc9d81c55368AE168C2C02570cB814F` |
+| RevenueRouter | `0x67d269191c92Caf3cD7723F116c85e6E9bf55933` |
+| WorkEscrow (stretch) | local `DemoLocal` script does not deploy it (`…` until testnet deploy) |
+
+X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):
 
 | Contract | Address |
 |---|---|

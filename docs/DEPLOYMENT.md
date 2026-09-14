@@ -21,9 +21,9 @@ servicing, default candidate), warps past the 12h window, then broadcasts `DemoL
 
 ## Deploy
 ```bash
-cp .env.example .env   # fill OPERATOR_PRIVATE_KEY, PROVIDER_*, SERVICE_ID
+cp .env.example .env   # repo already ships a working local .env; for testnet, fill OPERATOR_PRIVATE_KEY / DEPLOYER_PRIVATE_KEY, PROVIDER_*, SERVICE_ID
 export PATH="$HOME/.foundry/bin:$PATH"
-forge build && forge test   # must be green before broadcast
+forge build && forge test   # must be green (47/47) before broadcast
 forge script contracts/script/Deploy.s.sol \
   --rpc-url https://testrpc.xlayer.tech/terigon --broadcast
 # record addresses below + DEPLOY_BLOCK (for bot /history) in .env
@@ -42,5 +42,5 @@ forge script contracts/script/Deploy.s.sol \
 - [ ] Render fallback demo recording.
 
 ## Rehearsal gates (from docs/DEMO.md)
-- `forge test` 38/38 green. `npm run typecheck` clean.
+- `forge test` 47/47 green (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite). `npm run typecheck` clean.
 - Never claim: guaranteed recovery, universal lien, sybil-proof scores, "x402 facilitator settles on X Layer".

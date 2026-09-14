@@ -14,7 +14,7 @@ All token-moving functions: CEI ordering + `nonReentrant` + `whenNotPaused`.
 | Revenue-source swap mid-loan | Lien evasion | Source locked while active; lien blocks new advance | `test_LienCapture…` (locked) | Contract-controlled receiving wallet |
 | Wallet reset (sybil) | Repeat low-tier borrowing | One advance, ≤5 USDC bootstrap tier, slow +50 growth | tiers in passport | Stake/history proofs, cross-wallet identity |
 | Default, no future revenue | Lender loss | Conditional lien + −300 score; honest "no guarantee" copy | `test_DefaultRecordsShortfallAndLien` | Escrowed receivable/collateral |
-| Reentrancy (ERC777-style/USDC callbacks) | Accounting/token loss | Guards + SafeERC20 + pull-pattern | `forge test` (no reentrant path; handlers pull first) | Audit + invariant fuzzing |
+| Reentrancy (ERC777-style/USDC callbacks) | Accounting/token loss | Guards + SafeERC20 + pull-pattern | `Security.t.sol` (8 tests) with adversarial `ReentrantUSDC` mock proving reentrant servicing/default paths revert or stay consistent | Audit + invariant fuzzing |
 | Share inflation (first-depositor) | Lender theft | ERC4626 standard (virtual offset via OZ) | `test_SecondDepositProportionalAfterLoss` | Audit |
 | Wrong decimals | Mispriced amounts | Single 6-decimal USDC config; mock matches | all amounts in base units | Deployment-time decimals assertion |
 | Admin key compromise | Router/operator/risk swapped | `Ownable` + events; risk setters bounded (`split≤100%`, `window≥1h`) | — | Multisig + timelock |
