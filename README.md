@@ -14,9 +14,10 @@ This is a clean-room v3 rewrite of the `ComputeCredit_v2.pdf` (Manus AI) spec. W
 ```
 contracts/src/  ComputeCreditVault.sol  TrustPassport.sol  ProviderRegistry.sol
                 RevenueRouter.sol  WorkEscrow.sol (stretch)  MockUSDC.sol
+                AgentIdentity.sol  ComputeFutures.sol  FacilitatorAdapter.sol  CreditAdmin.sol
 contracts/test/ Base.t.sol (shared fixture)  ComputeCredit.t.sol (24)  WorkEscrow.t.sol (10)
                 Fuzz.t.sol (4)  Security.t.sol (8, incl. adversarial-token reentrancy proofs)
-                Invariants.t.sol (6 handler-fuzzed stateful invariants)  mocks/ReentrantUSDC.sol
+                Invariants.t.sol (6 handler-fuzzed stateful invariants)  Production.t.sol (9)  mocks/ReentrantUSDC.sol
 contracts/script/ Deploy.s.sol  DemoLocal.s.sol (two-phase local demo)
 contracts/deployments/ 31337-demo.json + phase1/2-txs.json (local demo records)
 scripts/demo-local.sh   (anvil lifecycle + time-warp + broadcast + record)
@@ -31,7 +32,7 @@ docs/ ARCHITECTURE.md  THREAT_MODEL.md  DEMO.md  DEPLOYMENT.md  V2_CRITIQUE.md
 ```bash
 export PATH="$HOME/.foundry/bin:$PATH"
 forge build
-forge test                      # 47/47 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite)
+forge test                      # 56/56 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite + 9 production)
 npm install
 npm run typecheck               # tsc clean
 cp .env.example .env            # local defaults work as-is; fill keys + addresses for testnet
@@ -101,9 +102,11 @@ X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):
 - Not regulated factoring; no guaranteed recovery; pool shares float with defaults/repayments.
 
 ## Shipped vs planned
-- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 47 tests + scripted local end-to-end demo with onchain assertions.
+- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 56 tests + scripted local end-to-end demo with onchain assertions.
 - **Shipped (stretch, outside core claim):** WorkEscrow buyer-escrow module with router-integrated release.
-- **Planned (not built):** compute futures, cross-wallet identity, facilitator auto-settlement.
+- **Shipped (production hardening):** vault sig-only mode + 6-decimal assertion + global outstanding cap + risk timelock; passport multi-attester quorum + identity-registry hook; `CreditAdmin` multisig-timelock; orchestrator EIP-712 sig path (`BORROWER_PRIVATE_KEY`).
+- **Shipped (planned modules, v1):** `AgentIdentity` (cross-wallet linkage), `ComputeFutures` (pre-sold tranches settled via router), `FacilitatorAdapter` (x402 intent record + router fallback; never claims facilitator settlement on X Layer).
+- **Still not done (needs live network + humans):** X Layer testnet deploy + addresses in README/`.env`, testnet happy/default paths with tx hashes, OKLink verification, keeper/bot live run, fallback recording, third-party audit.
 
 ## Attribution
 - Base spec: `ComputeCredit_v2.pdf` (Manus AI) — critiqued in `docs/V2_CRITIQUE.md`.

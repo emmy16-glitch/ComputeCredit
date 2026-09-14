@@ -23,6 +23,10 @@ Orchestrator ──requestAdvance──┘   ProviderRegistry  TrustPassport
 | `Orchestrator` (offchain TS) | Quote → balance check → advance decision → provider pay → monitor | Trusted operator in MVP; checks are UX-only |
 | `Keeper` (`orchestrator/src/keeper.ts`) | Watches borrower list, submits permissionless `penalize()` after expiry | Anyone can run; no special authority |
 | `Telegram bot` | `/infer /invest /withdraw /position /pool /score /id /history /faucet` — thin wrapper | No policy bypass; invest/withdraw proxy the operator demo wallet |
+| `AgentIdentity` (planned→shipped v1) | Cross-wallet linkage: agentId ↔ wallets, attester-linked, self-unlink | Sybil mitigation; passport points at it via `identityRegistry` |
+| `ComputeFutures` (planned→shipped v1) | Pre-sold compute tranches; buyer locks USDC; settle always via router | Turns expected revenue into locked receivable; indebted workers auto-service |
+| `FacilitatorAdapter` (planned→shipped v1) | Records x402 intent hash, flags facilitator path per chain, settles via router | Never claims facilitator settlement on X Layer (unsupported); auditable fallback |
+| `CreditAdmin` | M-of-N multisig + timelock for vault admin calls | Replaces single-EOA Ownable in production; threshold 1 / delay 0 = MVP behavior |
 | `WorkEscrow` (stretch, deployed) | Buyer-locked receivable; release always routes via `RevenueRouter` | Separate from core; strengthens underwriting when used |
 
 ## Key invariants (all tested in `contracts/test/ComputeCredit.t.sol`)

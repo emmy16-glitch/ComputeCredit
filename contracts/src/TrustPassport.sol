@@ -26,13 +26,25 @@ contract TrustPassport is AccessControl {
     mapping(address agent => bytes32[]) private _attestations;
     mapping(address agent => uint256) public settledCount;
     mapping(address agent => uint256) public defaultCount;
+    // ---- production: multi-attester quorum seeding + optional identity registry ----
+    uint256 public seedQuorum = 1; // N approvals required; 1 = MVP single-attester behavior
+    mapping(address agent => uint256) public seedApprovalCount;
+    mapping(address agent => mapping(address attester => bool)) public seedApprovedBy;
+    mapping(address agent => uint256) public pendingSeedScore;
+    mapping(address agent => bool) public pendingSeed;
+    address public identityRegistry; // AgentIdentity contract (optional)
 
     event ScoreSeeded(address indexed agent, uint256 score, string reason);
     event ScoreUpdated(address indexed agent, uint256 oldScore, uint256 newScore, string reason);
     event AttestationRecorded(address indexed agent, bytes32 indexed workHash, address indexed attester);
+    event SeedProposed(address indexed agent, uint256 score, address indexed attester);
+    event SeedQuorumSet(uint256 quorum);
+    event IdentityRegistrySet(address indexed registry);
 
     error AlreadySeeded(address agent);
     error ScoreOutOfRange(uint256 score);
+    error BadQuorum();
+    error AlreadyApproved();
 
     constructor(address admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -44,23 +56,79 @@ contract TrustPassport is AccessControl {
         _grantRole(VAULT_ROLE, vault);
     }
 
+    function setSeedQuorum(uint256 q) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (q == 0 || q > 10) revert BadQuorum();
+        seedQuorum = q;
+        emit SeedQuorumSet(q);
+    }
+
+    function setIdentityRegistry(address reg) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        identityRegistry = reg;
+        emit IdentityRegistrySet(reg);
+    }
+
     // ---- seeding (hackathon bootstrap) ----
 
     /// @notice One-time bootstrap score. Must be labelled as trusted bootstrap in UI.
+    /// @dev With seedQuorum == 1 this finalizes immediately (MVP). With quorum > 1 it
+    ///      records one approval and finalizes once N distinct attesters approve.
     function seedScore(address agent, uint256 initialScore, string calldata reason) external onlyRole(ATTESTER_ROLE) {
         if (seeded[agent]) revert AlreadySeeded(agent);
         if (initialScore > MAX_SCORE) revert ScoreOutOfRange(initialScore);
-        seeded[agent] = true;
-        score[agent] = initialScore;
-        emit ScoreSeeded(agent, initialScore, reason);
+        if (seedQuorum == 1) {
+            seeded[agent] = true;
+            score[agent] = initialScore;
+            emit ScoreSeeded(agent, initialScore, reason);
+            return;
+        }
+        _approveSeed(agent, initialScore, reason);
     }
 
     /// @notice Convenience default bootstrap (300) when no history exists.
     function seedDefault(address agent) external onlyRole(ATTESTER_ROLE) {
         if (seeded[agent]) revert AlreadySeeded(agent);
-        seeded[agent] = true;
-        score[agent] = BOOTSTRAP_SCORE;
-        emit ScoreSeeded(agent, BOOTSTRAP_SCORE, "bootstrap: no history");
+        if (seedQuorum == 1) {
+            seeded[agent] = true;
+            score[agent] = BOOTSTRAP_SCORE;
+            emit ScoreSeeded(agent, BOOTSTRAP_SCORE, "bootstrap: no history");
+            return;
+        }
+        _approveSeed(agent, BOOTSTRAP_SCORE, "bootstrap: no history");
+    }
+
+    /// @notice Additional attester approval for a pending seed (quorum path).
+    function approveSeed(address agent) external onlyRole(ATTESTER_ROLE) {
+        if (seeded[agent]) revert AlreadySeeded(agent);
+        if (!pendingSeed[agent]) revert AlreadyApproved(); // nothing pending
+        if (seedApprovedBy[agent][msg.sender]) revert AlreadyApproved();
+        seedApprovedBy[agent][msg.sender] = true;
+        seedApprovalCount[agent] += 1;
+        emit SeedProposed(agent, pendingSeedScore[agent], msg.sender);
+        if (seedApprovalCount[agent] >= seedQuorum) {
+            seeded[agent] = true;
+            score[agent] = pendingSeedScore[agent];
+            pendingSeed[agent] = false;
+            emit ScoreSeeded(agent, pendingSeedScore[agent], "quorum bootstrap");
+        }
+    }
+
+    function _approveSeed(address agent, uint256 s, string memory reason) internal {
+        if (seedApprovedBy[agent][msg.sender]) revert AlreadyApproved();
+        if (!pendingSeed[agent]) {
+            pendingSeed[agent] = true;
+            pendingSeedScore[agent] = s;
+        } else {
+            require(pendingSeedScore[agent] == s, "quorum score mismatch");
+        }
+        seedApprovedBy[agent][msg.sender] = true;
+        seedApprovalCount[agent] += 1;
+        emit SeedProposed(agent, s, msg.sender);
+        if (seedApprovalCount[agent] >= seedQuorum) {
+            seeded[agent] = true;
+            score[agent] = s;
+            pendingSeed[agent] = false;
+            emit ScoreSeeded(agent, s, reason);
+        }
     }
 
     // ---- vault-only mutations ----

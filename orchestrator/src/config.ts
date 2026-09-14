@@ -7,6 +7,11 @@ export const vaultAbi = [
   { name: "requestAdvanceFor", type: "function", stateMutability: "nonpayable",
     inputs: [{name:"borrower",type:"address"},{name:"provider",type:"address"},{name:"cost",type:"uint256"},{name:"jobHash",type:"bytes32"},{name:"revenueSource",type:"address"}],
     outputs: [{type:"uint256"}] },
+  { name: "requestAdvanceWithSig", type: "function", stateMutability: "nonpayable",
+    inputs: [{name:"borrower",type:"address"},{name:"provider",type:"address"},{name:"cost",type:"uint256"},{name:"jobHash",type:"bytes32"},{name:"revenueSource",type:"address"},{name:"nonce",type:"uint256"},{name:"expiry",type:"uint256"},{name:"sig",type:"bytes"}],
+    outputs: [{type:"uint256"}] },
+  { name: "nonces", type: "function", stateMutability: "view", inputs: [{name:"borrower",type:"address"}], outputs: [{type:"uint256"}] },
+  { name: "sigOnlyMode", type: "function", stateMutability: "view", inputs: [], outputs: [{type:"bool"}] },
   { name: "activeAdvanceId", type: "function", stateMutability: "view", inputs: [{name:"borrower",type:"address"}], outputs: [{type:"uint256"}] },
   { name: "remainingOf", type: "function", stateMutability: "view", inputs: [{name:"id",type:"uint256"}], outputs: [{type:"uint256"}] },
   { name: "penalize", type: "function", stateMutability: "nonpayable", inputs: [{name:"borrower",type:"address"}], outputs: [] },
@@ -23,6 +28,22 @@ export const registryAbi = [
   { name: "quote", type: "function", stateMutability: "view", inputs: [{name:"provider",type:"address"}], outputs: [{name:"pricePerJob",type:"uint256"},{name:"payout",type:"address"}] },
 ] as const;
 
+export const routerAbi = [
+  { name: "routePayment", type: "function", stateMutability: "nonpayable",
+    inputs: [{name:"borrower",type:"address"},{name:"amount",type:"uint256"},{name:"borrowerDestination",type:"address"}],
+    outputs: [{name:"toVault",type:"uint256"},{name:"toBorrower",type:"uint256"}] },
+] as const;
+
+export const identityAbi = [
+  { name: "agentOf", type: "function", stateMutability: "view", inputs: [{name:"wallet",type:"address"}], outputs: [{type:"uint256"}] },
+  { name: "walletsOf", type: "function", stateMutability: "view", inputs: [{name:"agentId",type:"uint256"}], outputs: [{type:"address[]"}] },
+] as const;
+
+export const adapterAbi = [
+  { name: "recordAndRoute", type: "function", stateMutability: "nonpayable",
+    inputs: [{name:"borrower",type:"address"},{name:"amount",type:"uint256"},{name:"borrowerDestination",type:"address"},{name:"intentHash",type:"bytes32"},{name:"settlementChainId",type:"uint256"}],
+    outputs: [{name:"toVault",type:"uint256"},{name:"toBorrower",type:"uint256"},{name:"facilitatorPath",type:"bool"}] },
+] as const;
 export const erc20Abi = [
   { name: "balanceOf", type: "function", stateMutability: "view", inputs: [{name:"a",type:"address"}], outputs: [{type:"uint256"}] },
   { name: "transfer", type: "function", stateMutability: "nonpayable", inputs: [{name:"to",type:"address"},{name:"amount",type:"uint256"}], outputs: [{type:"bool"}] },

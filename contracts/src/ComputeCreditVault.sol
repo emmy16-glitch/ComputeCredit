@@ -10,6 +10,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ProviderRegistry} from "./ProviderRegistry.sol";
 import {TrustPassport} from "./TrustPassport.sol";
 
@@ -81,6 +82,12 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     // lien state per borrower (post-default conditional claim)
     mapping(address borrower => uint256) public lienTarget;
     mapping(address borrower => uint256) public lienCaptured;
+    // ---- production hardening (additive, defaults preserve MVP behavior) ----
+    bool public sigOnlyMode; // when true, operator path disabled; borrower-self or EIP-712 only
+    uint256 public globalOutstandingCap; // 0 = uncapped; else totalOutstanding + repayable <= cap
+    uint256 public riskChangeDelay; // seconds; 0 = immediate setRisk (MVP default)
+    RiskParams public pendingRisk;
+    uint64 public pendingRiskEta; // 0 = none proposed
 
     // ---- events ----
     event RouterSet(address indexed router, bool approved);
@@ -102,6 +109,10 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     event LienCaptured(address indexed borrower, uint256 captured, uint256 totalCaptured, uint256 target);
     event LienCleared(address indexed borrower);
     event RevenueSourceRegistered(address indexed borrower, address indexed source);
+    event SigOnlyModeSet(bool enabled);
+    event GlobalOutstandingCapSet(uint256 cap);
+    event RiskProposed(RiskParams risk, uint64 eta);
+    event RiskChangeDelaySet(uint256 delay);
 
     // ---- errors ----
     error BelowMinDeposit();
@@ -123,6 +134,10 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     error ExpiredIntent();
     error BadNonce();
     error BadSignature();
+    error BadDecimals(uint8 got, uint8 want);
+    error OutstandingCapExceeded(uint256 outstandingAfter, uint256 cap);
+    error NoPendingRisk();
+    error RiskTimelocked(uint64 eta);
 
     constructor(IERC20 usdc, ProviderRegistry providers_, TrustPassport passport_, address owner_)
         ERC20("ComputeCredit Share", "CCS")
@@ -130,6 +145,13 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
         Ownable(owner_)
         EIP712("ComputeCreditVault", "3")
     {
+        uint8 dec;
+        try IERC20Metadata(address(usdc)).decimals() returns (uint8 d) {
+            dec = d;
+        } catch {
+            dec = 6; // non-metadata token: assume test env (MockUSDC always reports 6)
+        }
+        if (dec != 6) revert BadDecimals(dec, 6); // deployment-time decimals assertion
         providers = providers_;
         passport = passport_;
         risk = RiskParams({
@@ -200,10 +222,47 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     }
 
     function setRisk(RiskParams calldata r) external onlyOwner {
+        if (riskChangeDelay != 0) revert RiskTimelocked(pendingRiskEta); // use propose/apply when timelocked
+        _setRisk(r);
+    }
+
+    function setRiskChangeDelay(uint256 delay) external onlyOwner {
+        riskChangeDelay = delay;
+        emit RiskChangeDelaySet(delay);
+    }
+
+    function proposeRisk(RiskParams calldata r) external onlyOwner {
+        require(r.splitBps <= 10_000 && r.lienCaptureBps <= 10_000 && r.feeBps <= 1_000, "bad bps");
+        require(r.advanceWindow >= 3_600, "window too short");
+        pendingRisk = r;
+        pendingRiskEta = uint64(block.timestamp + riskChangeDelay);
+        emit RiskProposed(r, pendingRiskEta);
+    }
+
+    function applyRisk() external onlyOwner {
+        if (pendingRiskEta == 0) revert NoPendingRisk();
+        if (block.timestamp < pendingRiskEta) revert RiskTimelocked(pendingRiskEta);
+        RiskParams memory r = pendingRisk;
+        delete pendingRisk;
+        pendingRiskEta = 0;
+        _setRisk(r);
+    }
+
+    function _setRisk(RiskParams memory r) internal {
         require(r.splitBps <= 10_000 && r.lienCaptureBps <= 10_000 && r.feeBps <= 1_000, "bad bps");
         require(r.advanceWindow >= 3_600, "window too short");
         risk = r;
         emit RiskUpdated(r);
+    }
+
+    function setSigOnlyMode(bool enabled) external onlyOwner {
+        sigOnlyMode = enabled;
+        emit SigOnlyModeSet(enabled);
+    }
+
+    function setGlobalOutstandingCap(uint256 cap) external onlyOwner {
+        globalOutstandingCap = cap;
+        emit GlobalOutstandingCapSet(cap);
     }
 
     function pause() external onlyOwner {
@@ -217,12 +276,14 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     // ============ advances ============
 
     /// @notice Operator-assisted request (demo path): caller must be borrower or approved operator.
+    /// @dev Disabled for operators when sigOnlyMode is on (production: borrower-self or EIP-712 only).
     function requestAdvanceFor(address borrower, address provider, uint256 cost, bytes32 jobHash, address revenueSource)
         external
         nonReentrant
         whenNotPaused
         returns (uint256 id)
     {
+        if (sigOnlyMode && msg.sender != borrower) revert NotAuthorizedRequester();
         if (msg.sender != borrower && !approvedOperators[msg.sender]) revert NotAuthorizedRequester();
         return _request(borrower, provider, cost, jobHash, revenueSource);
     }
@@ -270,6 +331,9 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
 
         uint256 fee = (cost * risk.feeBps) / 10_000;
         uint256 repayable = cost + fee;
+        if (globalOutstandingCap != 0 && totalOutstanding + repayable > globalOutstandingCap) {
+            revert OutstandingCapExceeded(totalOutstanding + repayable, globalOutstandingCap);
+        }
 
         id = nextAdvanceId++;
         uint256 dueAt = block.timestamp + risk.advanceWindow;

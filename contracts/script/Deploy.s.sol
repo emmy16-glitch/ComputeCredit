@@ -8,6 +8,10 @@ import {TrustPassport} from "../src/TrustPassport.sol";
 import {ComputeCreditVault} from "../src/ComputeCreditVault.sol";
 import {RevenueRouter} from "../src/RevenueRouter.sol";
 import {WorkEscrow} from "../src/WorkEscrow.sol";
+import {AgentIdentity} from "../src/AgentIdentity.sol";
+import {ComputeFutures} from "../src/ComputeFutures.sol";
+import {FacilitatorAdapter} from "../src/FacilitatorAdapter.sol";
+import {CreditAdmin} from "../src/CreditAdmin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Deploy full ComputeCredit v3 stack (core + WorkEscrow stretch module).
@@ -37,6 +41,10 @@ contract Deploy is Script {
         address vault;
         address router;
         address workEscrow;
+        address identity;
+        address futures;
+        address adapter;
+        address admin;
     }
 
     function run() external {
@@ -59,23 +67,11 @@ contract Deploy is Script {
     }
 
     function _deploy(Config memory c) internal returns (Contracts memory d) {
-        IERC20 usdc;
-        if (c.usdcAddr == address(0)) {
-            usdc = IERC20(address(new MockUSDC()));
-        } else {
-            usdc = IERC20(c.usdcAddr);
-        }
-        ProviderRegistry registry = new ProviderRegistry(c.deployer);
-        TrustPassport passport = new TrustPassport(c.deployer);
-        ComputeCreditVault vault = new ComputeCreditVault(usdc, registry, passport, c.deployer);
-        RevenueRouter router = new RevenueRouter(vault, c.deployer);
-        WorkEscrow workEscrow = new WorkEscrow(usdc, router, c.deployer);
-
-        vault.setRouter(address(router), true);
-        vault.setOperator(c.operator, true);
-        passport.grantRole(passport.ATTESTER_ROLE(), c.deployer);
-        passport.grantRole(passport.VAULT_ROLE(), address(vault));
-        registry.registerProvider(c.provider, c.providerPayout, c.providerPrice, c.serviceId);
+        (IERC20 usdc, ProviderRegistry registry, TrustPassport passport, ComputeCreditVault vault, RevenueRouter router) =
+            _deployCore(c);
+        (WorkEscrow workEscrow, AgentIdentity identity, ComputeFutures futures, FacilitatorAdapter adapter, CreditAdmin admin) =
+            _deployExtra(usdc, router, c.deployer);
+        _wire(c, usdc, registry, passport, vault, router, identity);
 
         d = Contracts({
             usdc: address(usdc),
@@ -83,8 +79,58 @@ contract Deploy is Script {
             passport: address(passport),
             vault: address(vault),
             router: address(router),
-            workEscrow: address(workEscrow)
+            workEscrow: address(workEscrow),
+            identity: address(identity),
+            futures: address(futures),
+            adapter: address(adapter),
+            admin: address(admin)
         });
+    }
+
+    function _deployCore(Config memory c)
+        internal
+        returns (IERC20 usdc, ProviderRegistry registry, TrustPassport passport, ComputeCreditVault vault, RevenueRouter router)
+    {
+        if (c.usdcAddr == address(0)) {
+            usdc = IERC20(address(new MockUSDC()));
+        } else {
+            usdc = IERC20(c.usdcAddr);
+        }
+        registry = new ProviderRegistry(c.deployer);
+        passport = new TrustPassport(c.deployer);
+        vault = new ComputeCreditVault(usdc, registry, passport, c.deployer);
+        router = new RevenueRouter(vault, c.deployer);
+    }
+
+    function _deployExtra(IERC20 usdc, RevenueRouter router, address deployer)
+        internal
+        returns (WorkEscrow workEscrow, AgentIdentity identity, ComputeFutures futures, FacilitatorAdapter adapter, CreditAdmin admin)
+    {
+        workEscrow = new WorkEscrow(usdc, router, deployer);
+        identity = new AgentIdentity(deployer);
+        futures = new ComputeFutures(usdc, router, deployer);
+        adapter = new FacilitatorAdapter(router, deployer);
+        // MVP admin: single-owner threshold 1, no delay (production: N owners + delay).
+        address[] memory owners = new address[](1);
+        owners[0] = deployer;
+        admin = new CreditAdmin(owners, 1, 0);
+    }
+
+    function _wire(
+        Config memory c,
+        IERC20,
+        ProviderRegistry registry,
+        TrustPassport passport,
+        ComputeCreditVault vault,
+        RevenueRouter router,
+        AgentIdentity identity
+    ) internal {
+        vault.setRouter(address(router), true);
+        vault.setOperator(c.operator, true);
+        passport.grantRole(passport.ATTESTER_ROLE(), c.deployer);
+        passport.grantRole(passport.VAULT_ROLE(), address(vault));
+        passport.setIdentityRegistry(address(identity));
+        registry.registerProvider(c.provider, c.providerPayout, c.providerPrice, c.serviceId);
     }
 
     function _print(Contracts memory d, address operator) internal view {
@@ -94,6 +140,10 @@ contract Deploy is Script {
         console.log("ComputeCreditVault: ", d.vault);
         console.log("RevenueRouter:      ", d.router);
         console.log("WorkEscrow:         ", d.workEscrow, "(stretch module)");
+        console.log("AgentIdentity:      ", d.identity);
+        console.log("ComputeFutures:     ", d.futures);
+        console.log("FacilitatorAdapter: ", d.adapter);
+        console.log("CreditAdmin:        ", d.admin, "(multisig-timelock, threshold 1 / delay 0)");
         console.log("Operator:           ", operator);
         console.log("Chain ID:           ", block.chainid);
     }
