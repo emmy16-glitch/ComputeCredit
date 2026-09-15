@@ -17,6 +17,13 @@ set -euo pipefail
 
 RPC_URL="${RPC_URL:-http://127.0.0.1:8545}"
 RPC_PORT="${RPC_URL##*:}"
+# Local anvil has no funds for keys from a testnet .env (forge autoloads .env
+# into vm.envOr). An explicit shell env var takes precedence, so default the
+# demo key to anvil's dev account when targeting localhost. Explicit exports
+# still win; testnet runs never touch this script.
+if [[ "$RPC_URL" == *"127.0.0.1"* || "$RPC_URL" == *"localhost"* ]]; then
+  export DEMO_PRIVATE_KEY="${DEMO_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+fi
 ADVANCE_WINDOW="${ADVANCE_WINDOW:-43200}"
 FOUNDRY_BIN="${FOUNDRY_BIN:-$HOME/.foundry/bin}"
 FORGE="$FOUNDRY_BIN/forge"

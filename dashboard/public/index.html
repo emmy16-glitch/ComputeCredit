@@ -96,10 +96,9 @@ $("loadWho").onclick = async () => {
   const out = $("outWho"), vault = $("vault").value, passport = $("passport").value, who = $("who").value, rwa = $("rwa").value;
   try {
     const c = pub();
-    const [score, lim, activeId] = await Promise.all([
-      c.readContract({ address: passport, abi: passportAbi, functionName: "score", args: [who] }),
-      c.readContract({ address: passport, abi: passportAbi, functionName: "maxAdvanceForScore",
-        args: [await c.readContract({ address: passport, abi: passportAbi, functionName: "score", args: [who] })] }),
+    const score = await c.readContract({ address: passport, abi: passportAbi, functionName: "score", args: [who] });
+    const [lim, activeId] = await Promise.all([
+      c.readContract({ address: passport, abi: passportAbi, functionName: "maxAdvanceForScore", args: [score] }),
       c.readContract({ address: vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [who] }),
     ]);
     let extra = "";

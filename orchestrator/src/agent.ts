@@ -17,11 +17,15 @@ import { ADDR, clients, vaultAbi, passportAbi, registryAbi, erc20Abi, jobHash, r
 export async function infer(prompt: string, borrower: Address, opts?: { nonce?: bigint }) {
   const { public: pub, wallet } = clients();
   const provider = ADDR.provider;
-  const [price] = (await pub.readContract({ address: ADDR.registry, abi: registryAbi, functionName: "quote", args: [provider] })) as unknown as [bigint, Address];
-  const score = (await pub.readContract({ address: ADDR.passport, abi: passportAbi, functionName: "score", args: [borrower] })) as bigint;
+  // Parallel reads (was: 5 sequential RPC round-trips — the main "slow task" complaint).
+  const [quote, score, balance, activeId] = await Promise.all([
+    pub.readContract({ address: ADDR.registry, abi: registryAbi, functionName: "quote", args: [provider] }),
+    pub.readContract({ address: ADDR.passport, abi: passportAbi, functionName: "score", args: [borrower] }),
+    pub.readContract({ address: ADDR.usdc, abi: erc20Abi, functionName: "balanceOf", args: [borrower] }),
+    pub.readContract({ address: ADDR.vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [borrower] }),
+  ]) as unknown as [[bigint, Address], bigint, bigint, bigint];
+  const [price] = quote;
   const tierLimit = (await pub.readContract({ address: ADDR.passport, abi: passportAbi, functionName: "maxAdvanceForScore", args: [score] })) as bigint;
-  const balance = (await pub.readContract({ address: ADDR.usdc, abi: erc20Abi, functionName: "balanceOf", args: [borrower] })) as bigint;
-  const activeId = (await pub.readContract({ address: ADDR.vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [borrower] })) as bigint;
 
   console.log(`borrower=${borrower} score=${score} tierLimit=${tierLimit} balance=${balance} price=${price} active=${activeId}`);
   let effectiveLimit = tierLimit;

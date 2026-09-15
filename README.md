@@ -84,16 +84,22 @@ see `contracts/deployments/31337-demo.json`):
 | RevenueRouter | `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` |
 | WorkEscrow (stretch) | local `DemoLocal` script does not deploy it (`…` until testnet deploy) |
 
-X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):
+X Layer testnet (chain 1952 — live 2026-09-14, see `contracts/deployments/1952-testnet.json`):
 
 | Contract | Address |
 |---|---|
-| USDC / MockUSDC | `…` |
-| ComputeCreditVault | `…` |
-| TrustPassport | `…` |
-| ProviderRegistry | `…` |
-| RevenueRouter | `…` |
-| WorkEscrow (stretch) | `…` |
+| USDC / MockUSDC | `0xb9865fB7b45C60256C068079b04f2dFE8FAbBEEA` |
+| ComputeCreditVault | `0x279F99B70DaEc1a300A93cB0C5260C755EB2F07C` |
+| TrustPassport | `0x7633e910FFF76B80BD08f0Ea2B66CE9ce6c91324` |
+| ProviderRegistry | `0xE16485066fF785d7DB536B36C0fBa1F3eaf902A8` |
+| RevenueRouter | `0xB449320134A01C7b8Bd7F781399fF7562c11dbc9` |
+| WorkEscrow (stretch) | `0x0D0993fd1Ea64Bc2Fbaf0aFB88cD0eb60eA159D9` |
+| AgentIdentity | `0x660e3023245C37e15611E6aBa9Adf5686a29F538` |
+| ComputeFutures | `0x0b60c951862D1206F0d8b17913297027fe5FA263` |
+| FacilitatorAdapter | `0xa1cAB0d72766779d499A6d37Ea2d471a7Aad45c6` |
+| CreditAdmin | `0x4aaFD149b08092943AB992c3FD459F284b8DEe79` |
+
+Testnet happy path (operator/borrower `0xBB9f4e86eA090F592e3757db0d4aa60c5FFEeA37`): deposit `0x94d14000f345f882f72c430169dd8f9949274248dfe8590719c06156d2759acd` → advance `0xcb168831130dc06b1ad346d43558966c41b3b6b593e85bf117fd52ddc83eb72e` → route `0x6e9deb865a646c80ac592ecacedcfc86f0faabdf07dffbabaf9c3499d8eed2d1` → settle `0x396eefb38694a773ff8584f517e4687cae7488a7b650f055313fe658e617593f` (score 300→350, remaining 0). Explorer: `https://www.oklink.com/x-layer-testnet`.
 
 ## Trust assumptions (MVP — also narrated in demo)
 1. **Operator** may request advances for demo borrowers (production: borrower EIP-712 signatures — already implemented as `requestAdvanceWithSig` — plus wallet policy).
@@ -113,7 +119,7 @@ X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):
 - **Shipped (stretch, outside core claim):** WorkEscrow buyer-escrow module with router-integrated release.
 - **Shipped (production hardening):** vault sig-only mode + 6-decimal assertion + global outstanding cap + risk timelock; passport multi-attester quorum + identity-registry hook; `CreditAdmin` multisig-timelock; orchestrator EIP-712 sig path (`BORROWER_PRIVATE_KEY`).
 - **Shipped (planned modules, v1):** `AgentIdentity` (cross-wallet linkage), `ComputeFutures` (pre-sold tranches settled via router), `FacilitatorAdapter` (x402 intent record + router fallback; never claims facilitator settlement on X Layer).
-- **Still not done (needs live network + humans):** X Layer testnet deploy + addresses in README/`.env`, testnet happy/default paths with tx hashes, OKLink verification, keeper/bot live run, fallback recording, third-party audit.
+- **Still not done (needs humans):** OKLink verification, keeper/bot live run, fallback recording, third-party audit. (X Layer testnet deploy done 2026-09-14 — see addresses + happy-path txs above.)
 
 ## Attribution
 - Base spec: `ComputeCredit_v2.pdf` (Manus AI) — critiqued in `docs/V2_CRITIQUE.md`.
