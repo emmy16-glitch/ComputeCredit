@@ -77,11 +77,11 @@ see `contracts/deployments/31337-demo.json`):
 
 | Contract | Address |
 |---|---|
-| USDC / MockUSDC | `0x4A679253410272dd5232B3Ff7cF5dbB88f295319` |
-| ComputeCreditVault | `0xc5a5C42992dECbae36851359345FE25997F5C42d` |
-| TrustPassport | `0x09635F643e140090A9A8Dcd712eD6285858ceBef` |
-| ProviderRegistry | `0x7a2088a1bFc9d81c55368AE168C2C02570cB814F` |
-| RevenueRouter | `0x67d269191c92Caf3cD7723F116c85e6E9bf55933` |
+| USDC / MockUSDC | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| ComputeCreditVault | `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` |
+| TrustPassport | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
+| ProviderRegistry | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
+| RevenueRouter | `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` |
 | WorkEscrow (stretch) | local `DemoLocal` script does not deploy it (`…` until testnet deploy) |
 
 X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):

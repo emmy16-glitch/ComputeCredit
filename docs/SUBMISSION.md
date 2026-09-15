@@ -15,7 +15,7 @@ routed through `RevenueRouter` on X Layer. New for the build period:
    (`eip155:196` mainnet / `eip155:1952` testnet, USDT0) and free mode.
 
 ## Links (fill at submit time)
-- Repo: <public GitHub URL> (README with runbook)
+- Repo: https://github.com/emmy16-glitch/ComputeCredit (README with runbook)
 - Demo video (2–4 min): <YouTube/unlisted link>
 - Live product: dashboard (`dashboard/public`) + MCP (`npm run mcp`) + X Layer testnet addresses below
 - Contracts (X Layer testnet 1952 — fill after `forge script ... --broadcast`):

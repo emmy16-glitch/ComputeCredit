@@ -30,7 +30,7 @@ Production: borrower signatures (already in the contract), wallet policy, escrow
 Reliable vault + correct router + honest boundaries beat more half-built modules."
 
 ## Rehearsal checklist
-- [ ] `forge test` green (47/47: 24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite). `npm run typecheck` clean.
+- [ ] `forge test` green (61/61: 24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite + 9 production + 5 RWA). `npm run typecheck` clean.
 - [ ] `bash scripts/demo-local.sh` prints ALL LOCAL DEMO ASSERTIONS PASSED.
   - Note: the local script uses scaled-down numbers (50 USDC deposit, 0.02 advances,
     seed score 150) and asserts them onchain in `DemoLocalPhase2`; the narration above
