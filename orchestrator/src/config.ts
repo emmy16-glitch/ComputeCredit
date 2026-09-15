@@ -72,7 +72,18 @@ export const ADDR = {
   router: process.env.ROUTER as Address,
   usdc: process.env.USDC as Address,
   provider: process.env.PROVIDER as Address,
+  rwa: (process.env.RWA_COLLATERAL ?? process.env.RWA) as Address | undefined,
+  xstock: process.env.XSTOCK as Address | undefined,
 };
+
+export const rwaAbi = [
+  { name: "collateralValue", type: "function", stateMutability: "view", inputs: [{name:"b",type:"address"}], outputs: [{type:"uint256"}] },
+  { name: "locked", type: "function", stateMutability: "view", inputs: [{name:"b",type:"address"}], outputs: [{type:"uint256"}] },
+] as const;
+
+export const vaultRwaAbi = [
+  { name: "effectiveLimit", type: "function", stateMutability: "view", inputs: [{name:"borrower",type:"address"}], outputs: [{type:"uint256"}] },
+] as const;
 
 /** Deterministic job binding: keccak(borrower, provider, serviceId, price, nonce, expiry). */
 export function jobHash(borrower: Address, provider: Address, serviceId: string, price: bigint, nonce: bigint, expiry: bigint) {

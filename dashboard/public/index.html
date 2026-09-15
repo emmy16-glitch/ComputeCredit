@@ -39,8 +39,16 @@ Idle, outstanding and lien targets are shown separately — never combined into 
   <label>Passport / Router / Vault share the same borrower address</label>
   <input id="who" placeholder="0x borrower…" />
   <label>Passport address</label><input id="passport" placeholder="0x..." />
+  <label>RWA collateral address (optional)</label><input id="rwa" placeholder="0x..." />
   <button id="loadWho">Load borrower state</button>
   <pre id="outWho">score: — / active advance: — / lien: —</pre>
+</div>
+
+<div class="card">
+  <h3>A2MCP service</h3>
+  <label>MCP base URL (e.g. http://localhost:4021)</label><input id="mcp" value="http://localhost:4021" />
+  <button id="loadMcp">Load MCP health + pool</button>
+  <pre id="outMcp">—</pre>
 </div>
 
 <script type="module">
@@ -57,6 +65,12 @@ const vaultAbi = [
 const passportAbi = [
   { name:"score", type:"function", stateMutability:"view", inputs:[{name:"a",type:"address"}], outputs:[{type:"uint256"}] },
   { name:"maxAdvanceForScore", type:"function", stateMutability:"view", inputs:[{name:"s",type:"uint256"}], outputs:[{type:"uint256"}] },
+];
+const rwaAbi = [
+  { name:"collateralValue", type:"function", stateMutability:"view", inputs:[{name:"b",type:"address"}], outputs:[{type:"uint256"}] },
+];
+const vaultRwaAbi = [
+  { name:"effectiveLimit", type:"function", stateMutability:"view", inputs:[{name:"borrower",type:"address"}], outputs:[{type:"uint256"}] },
 ];
 const $ = (id) => document.getElementById(id);
 const pub = () => createPublicClient({ transport: http($("rpc").value) });
@@ -79,7 +93,7 @@ $("load").onclick = async () => {
 };
 
 $("loadWho").onclick = async () => {
-  const out = $("outWho"), vault = $("vault").value, passport = $("passport").value, who = $("who").value;
+  const out = $("outWho"), vault = $("vault").value, passport = $("passport").value, who = $("who").value, rwa = $("rwa").value;
   try {
     const c = pub();
     const [score, lim, activeId] = await Promise.all([
@@ -89,9 +103,18 @@ $("loadWho").onclick = async () => {
       c.readContract({ address: vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [who] }),
     ]);
     let extra = "";
+    if (rwa) {
+      try {
+        const [val, eff] = await Promise.all([
+          c.readContract({ address: rwa, abi: rwaAbi, functionName: "collateralValue", args: [who] }),
+          c.readContract({ address: vault, abi: vaultRwaAbi, functionName: "effectiveLimit", args: [who] }),
+        ]);
+        extra += `\nrwa collateral: ${formatUnits(val, 6)} USDC | effective limit: ${formatUnits(eff, 6)} USDC`;
+      } catch (e) { extra += `\nrwa lookup failed: ${e.message}`; }
+    }
     if (activeId !== 0n) {
       const rem = await c.readContract({ address: vault, abi: vaultAbi, functionName: "remainingOf", args: [activeId] });
-      extra = `\nactive advance #${activeId} remaining: ${formatUnits(rem, 6)} USDC`;
+      extra += `\nactive advance #${activeId} remaining: ${formatUnits(rem, 6)} USDC`;
     }
     const [target, captured] = await Promise.all([
       c.readContract({ address: vault, abi: vaultAbi, functionName: "lienTarget", args: [who] }),
@@ -101,6 +124,17 @@ $("loadWho").onclick = async () => {
     out.textContent =
       `score: ${score} (max advance ${formatUnits(lim, 6)} USDC)\nactiveAdvanceId: ${activeId}${extra}\n\nborrower: ${link("address", who)}`;
   } catch (e) { out.textContent = "error: " + e.message; }
+};
+
+$("loadMcp").onclick = async () => {
+  const out = $("outMcp"), base = $("mcp").value.replace(/\/$/, "");
+  try {
+    const [health, pool] = await Promise.all([
+      fetch(`${base}/health`).then((r) => r.json()),
+      fetch(`${base}/pool`).then((r) => r.json()),
+    ]);
+    out.textContent = `mcp: ${JSON.stringify(health)}\npool: idle ${pool.idleUSDC} / outstanding ${pool.outstandingUSDC} (${pool.utilizationPct}%)`;
+  } catch (e) { out.textContent = "error: " + e.message + " (is `npm run mcp` running?)"; }
 };
 </script>
 </body>

@@ -8,6 +8,7 @@
     "orchestrator": "tsx orchestrator/src/index.ts",
     "keeper": "tsx orchestrator/src/keeper.ts",
     "bot": "tsx bot/src/telegram.ts",
+    "mcp": "tsx services/mcp-server/src/index.ts",
     "typecheck": "tsc --noEmit",
     "dashboard": "npx serve dashboard/public -l 3000"
   },

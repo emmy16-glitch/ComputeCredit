@@ -3,6 +3,8 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
+import {MockXStock} from "../src/MockXStock.sol";
+import {RwaCollateral} from "../src/RwaCollateral.sol";
 import {ProviderRegistry} from "../src/ProviderRegistry.sol";
 import {TrustPassport} from "../src/TrustPassport.sol";
 import {ComputeCreditVault} from "../src/ComputeCreditVault.sol";
@@ -45,6 +47,8 @@ contract Deploy is Script {
         address futures;
         address adapter;
         address admin;
+        address xstock;
+        address rwaCollateral;
     }
 
     function run() external {
@@ -71,7 +75,12 @@ contract Deploy is Script {
             _deployCore(c);
         (WorkEscrow workEscrow, AgentIdentity identity, ComputeFutures futures, FacilitatorAdapter adapter, CreditAdmin admin) =
             _deployExtra(usdc, router, c.deployer);
+        // RWA leg: mock tokenized stock + collateral vault (testnet/demo only).
+        MockXStock xstock = new MockXStock("AAPLx");
+        RwaCollateral rwa = new RwaCollateral(address(xstock), c.deployer);
         _wire(c, usdc, registry, passport, vault, router, identity);
+        vault.setRwaCollateral(address(rwa));
+        rwa.setVault(address(vault));
 
         d = Contracts({
             usdc: address(usdc),
@@ -83,7 +92,9 @@ contract Deploy is Script {
             identity: address(identity),
             futures: address(futures),
             adapter: address(adapter),
-            admin: address(admin)
+            admin: address(admin),
+            xstock: address(xstock),
+            rwaCollateral: address(rwa)
         });
     }
 
@@ -144,6 +155,8 @@ contract Deploy is Script {
         console.log("ComputeFutures:     ", d.futures);
         console.log("FacilitatorAdapter: ", d.adapter);
         console.log("CreditAdmin:        ", d.admin, "(multisig-timelock, threshold 1 / delay 0)");
+        console.log("MockXStock (RWA):   ", d.xstock);
+        console.log("RwaCollateral:      ", d.rwaCollateral);
         console.log("Operator:           ", operator);
         console.log("Chain ID:           ", block.chainid);
     }

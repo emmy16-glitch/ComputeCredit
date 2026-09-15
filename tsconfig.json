@@ -9,5 +9,5 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["orchestrator/src/**/*.ts", "bot/src/**/*.ts"]
+  "include": ["orchestrator/src/**/*.ts", "bot/src/**/*.ts", "services/mcp-server/src/**/*.ts"]
 }

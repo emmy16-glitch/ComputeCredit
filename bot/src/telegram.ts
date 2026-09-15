@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { ADDR, clients, vaultAbi, passportAbi } from "../../orchestrator/src/config.js";
+import { ADDR, clients, vaultAbi, passportAbi, rwaAbi, vaultRwaAbi } from "../../orchestrator/src/config.js";
 import { infer } from "../../orchestrator/src/agent.js";
 import "dotenv/config";
 
@@ -61,6 +61,7 @@ bot.command("start", (ctx) => ctx.reply(
   "/position — operator shares + pool status\n" +
   "/pool — vault idle / outstanding\n" +
   "/score <addr> — score, tier, max advance\n" +
+  "/rwa <addr> — xStock locked, collateral value, effective limit\n" +
   "/id <addr> — active advance id\n" +
   "/history <addr> — advances, servicing, settlements, defaults\n" +
   "/faucet <addr> — mint demo MockUSDC (testnet only)"
@@ -131,7 +132,26 @@ bot.command("score", async (ctx) => {
   const s = (await pub.readContract({ address: ADDR.passport, abi: passportAbi, functionName: "score", args: [addr] })) as bigint;
   const lim = (await pub.readContract({ address: ADDR.passport, abi: passportAbi, functionName: "maxAdvanceForScore", args: [s] })) as bigint;
   const id = (await pub.readContract({ address: ADDR.vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [addr] })) as bigint;
-  await ctx.reply(`score=${s} maxAdvance=${u(lim)} USDC activeAdvance=${id.toString()}`);
+  let extra = "";
+  try {
+    const eff = (await pub.readContract({ address: ADDR.vault, abi: vaultRwaAbi, functionName: "effectiveLimit", args: [addr] })) as bigint;
+    if (eff !== lim) extra = ` effectiveLimit=${u(eff)} USDC (incl. RWA boost)`;
+  } catch { /* pre-RWA vault */ }
+  await ctx.reply(`score=${s} maxAdvance=${u(lim)} USDC activeAdvance=${id.toString()}${extra}`);
+});
+
+bot.command("rwa", async (ctx) => {
+  const addr = arg(ctx.message?.text, 1) as Address;
+  if (!addr) return ctx.reply("usage: /rwa <borrowerAddress>");
+  if (!ADDR.rwa) return ctx.reply("RWA module not deployed yet (RWA_COLLATERAL unset).");
+  try {
+    const { public: pub } = clients();
+    const [val, eff] = await Promise.all([
+      pub.readContract({ address: ADDR.rwa, abi: rwaAbi, functionName: "collateralValue", args: [addr] }),
+      pub.readContract({ address: ADDR.vault, abi: vaultRwaAbi, functionName: "effectiveLimit", args: [addr] }),
+    ]) as [bigint, bigint];
+    await ctx.reply(`xStock collateral=${u(val)} USDC value\neffectiveLimit=${u(eff)} USDC\n(lock via RwaCollateral.lock after approving XSTOCK; unlock blocked while advance/lien open)`);
+  } catch (e: any) { await ctx.reply(`rwa failed: ${e.shortMessage ?? e.message}`); }
 });
 
 bot.command("id", async (ctx) => {

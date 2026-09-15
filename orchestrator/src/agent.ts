@@ -1,6 +1,6 @@
 import type { Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { ADDR, clients, vaultAbi, passportAbi, registryAbi, erc20Abi, jobHash } from "./config.js";
+import { ADDR, clients, vaultAbi, passportAbi, registryAbi, erc20Abi, jobHash, rwaAbi, vaultRwaAbi } from "./config.js";
 
 /**
  * Orchestrator lifecycle (offchain checks are UX only — vault is the authority):
@@ -24,8 +24,16 @@ export async function infer(prompt: string, borrower: Address, opts?: { nonce?: 
   const activeId = (await pub.readContract({ address: ADDR.vault, abi: vaultAbi, functionName: "activeAdvanceId", args: [borrower] })) as bigint;
 
   console.log(`borrower=${borrower} score=${score} tierLimit=${tierLimit} balance=${balance} price=${price} active=${activeId}`);
+  let effectiveLimit = tierLimit;
+  if (ADDR.rwa) {
+    try {
+      const rwaVal = (await pub.readContract({ address: ADDR.rwa, abi: rwaAbi, functionName: "collateralValue", args: [borrower] })) as bigint;
+      effectiveLimit = (await pub.readContract({ address: ADDR.vault, abi: vaultRwaAbi, functionName: "effectiveLimit", args: [borrower] })) as bigint;
+      console.log(`rwaCollateral=${rwaVal} effectiveLimit=${effectiveLimit}`);
+    } catch { /* RWA module not deployed yet */ }
+  }
 
-  if (price > tierLimit) throw new Error(`provider price ${price} exceeds tier limit ${tierLimit} — advance correctly rejected`);
+  if (price > effectiveLimit) throw new Error(`provider price ${price} exceeds effective limit ${effectiveLimit} (tier ${tierLimit}) — advance correctly rejected`);
   if (activeId !== 0n) throw new Error(`borrower already has active advance ${activeId}`);
 
   let openedJob: `0x${string}` | null = null;
@@ -44,7 +52,8 @@ export async function infer(prompt: string, borrower: Address, opts?: { nonce?: 
         throw new Error(`BORROWER_PRIVATE_KEY does not match borrower ${borrower}`);
       }
       const onchainNonce = (await pub.readContract({ address: ADDR.vault, abi: vaultAbi, functionName: "nonces", args: [borrower] })) as bigint;
-      const domain = { name: "ComputeCreditVault", version: "3", chainId: 1952, verifyingContract: ADDR.vault } as const;
+      const chainId = await pub.getChainId();
+      const domain = { name: "ComputeCreditVault", version: "3", chainId, verifyingContract: ADDR.vault } as const;
       const types = {
         AdvanceIntent: [
           { name: "borrower", type: "address" },

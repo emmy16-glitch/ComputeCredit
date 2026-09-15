@@ -14,6 +14,10 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ProviderRegistry} from "./ProviderRegistry.sol";
 import {TrustPassport} from "./TrustPassport.sol";
 
+interface IRwaCollateral {
+    function collateralValue(address borrower) external view returns (uint256);
+}
+
 /// @title ComputeCreditVault
 /// @notice Lender-funded, one-job compute advances serviced from routed agent revenue.
 /// @dev v3 clean-room rewrite of v2.1 spec with these deliberate fixes:
@@ -88,6 +92,9 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     uint256 public riskChangeDelay; // seconds; 0 = immediate setRisk (MVP default)
     RiskParams public pendingRisk;
     uint64 public pendingRiskEta; // 0 = none proposed
+    // ---- RWA boost (OKX Dev Day Build-a-Market integration, additive) ----
+    address public rwaCollateral; // RwaCollateral contract (optional, 0 = disabled)
+    uint256 public rwaBoostCap = 10_000_000; // max extra limit from locked xStock (10 USDC)
 
     // ---- events ----
     event RouterSet(address indexed router, bool approved);
@@ -113,6 +120,8 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
     event GlobalOutstandingCapSet(uint256 cap);
     event RiskProposed(RiskParams risk, uint64 eta);
     event RiskChangeDelaySet(uint256 delay);
+    event RwaCollateralSet(address indexed collateral);
+    event RwaBoostCapSet(uint256 cap);
 
     // ---- errors ----
     error BelowMinDeposit();
@@ -265,6 +274,26 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
         emit GlobalOutstandingCapSet(cap);
     }
 
+    function setRwaCollateral(address collateral) external onlyOwner {
+        rwaCollateral = collateral;
+        emit RwaCollateralSet(collateral);
+    }
+
+    function setRwaBoostCap(uint256 cap) external onlyOwner {
+        rwaBoostCap = cap;
+        emit RwaBoostCapSet(cap);
+    }
+
+    /// @notice Effective advance limit: score tier + min(locked xStock value, cap).
+    /// @dev Zero when RWA module unset — pure tier limit (backward compatible).
+    function effectiveLimit(address borrower) public view returns (uint256) {
+        uint256 tier = passport.maxAdvanceForScore(passport.score(borrower));
+        if (rwaCollateral == address(0)) return tier;
+        uint256 boost = IRwaCollateral(rwaCollateral).collateralValue(borrower);
+        if (boost > rwaBoostCap) boost = rwaBoostCap;
+        return tier + boost;
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -323,7 +352,7 @@ contract ComputeCreditVault is ERC4626, Ownable, ReentrancyGuard, Pausable, EIP7
         (uint256 maxPrice,) = providers.quote(provider); // reverts unknown/inactive
         if (cost > maxPrice) revert OverProviderPrice(cost, maxPrice);
 
-        uint256 tierLimit = passport.maxAdvanceForScore(passport.score(borrower));
+        uint256 tierLimit = effectiveLimit(borrower);
         if (cost > tierLimit) revert OverTierLimit(cost, tierLimit);
 
         uint256 idle = totalAssets();

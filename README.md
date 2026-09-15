@@ -15,9 +15,13 @@ This is a clean-room v3 rewrite of the `ComputeCredit_v2.pdf` (Manus AI) spec. W
 contracts/src/  ComputeCreditVault.sol  TrustPassport.sol  ProviderRegistry.sol
                 RevenueRouter.sol  WorkEscrow.sol (stretch)  MockUSDC.sol
                 AgentIdentity.sol  ComputeFutures.sol  FacilitatorAdapter.sol  CreditAdmin.sol
+                MockXStock.sol  RwaCollateral.sol (OKX Build-a-Market RWA leg)
 contracts/test/ Base.t.sol (shared fixture)  ComputeCredit.t.sol (24)  WorkEscrow.t.sol (10)
                 Fuzz.t.sol (4)  Security.t.sol (8, incl. adversarial-token reentrancy proofs)
-                Invariants.t.sol (6 handler-fuzzed stateful invariants)  Production.t.sol (9)  mocks/ReentrantUSDC.sol
+                Invariants.t.sol (6 handler-fuzzed stateful invariants)  Production.t.sol (9)  Rwa.t.sol (5)  mocks/ReentrantUSDC.sol
+contracts/script/ Deploy.s.sol  DemoLocal.s.sol (two-phase local demo)
+contracts/deployments/ 31337-demo.json + phase1/2-txs.json (local demo records)
+services/mcp-server/src/index.ts  (OKX AI A2MCP leg: get_score/get_pool/get_quote + x402 paid mode)
 contracts/script/ Deploy.s.sol  DemoLocal.s.sol (two-phase local demo)
 contracts/deployments/ 31337-demo.json + phase1/2-txs.json (local demo records)
 scripts/demo-local.sh   (anvil lifecycle + time-warp + broadcast + record)
@@ -32,7 +36,7 @@ docs/ ARCHITECTURE.md  THREAT_MODEL.md  DEMO.md  DEPLOYMENT.md  V2_CRITIQUE.md
 ```bash
 export PATH="$HOME/.foundry/bin:$PATH"
 forge build
-forge test                      # 56/56 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite + 9 production)
+forge test                      # 61/61 expected (24 core + 10 escrow + 4 fuzz + 8 security + 1 invariant suite + 9 production + 5 RWA)
 npm install
 npm run typecheck               # tsc clean
 cp .env.example .env            # local defaults work as-is; fill keys + addresses for testnet
@@ -47,6 +51,7 @@ forge script contracts/script/Deploy.s.sol \
 npm run orchestrator -- "summarize this" 0xBorrower
 KEEPER_BORROWERS=0xBorrower npm run keeper
 npm run bot
+npm run mcp                     # A2MCP service on :4021 (free mode; X402_ENABLED=1 for paid)
 npm run dashboard                 # http://localhost:3000
 ```
 
@@ -102,7 +107,9 @@ X Layer testnet (chain 1952 — pending, see `docs/DEPLOYMENT.md` runbook):
 - Not regulated factoring; no guaranteed recovery; pool shares float with defaults/repayments.
 
 ## Shipped vs planned
-- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 56 tests + scripted local end-to-end demo with onchain assertions.
+- **Shipped (core claim):** vault (ERC4626) + passport + registry + router + orchestrator + keeper + bot + dashboard + 61 tests + scripted local end-to-end demo with onchain assertions.
+- **Shipped (OKX Dev Day Build-a-Market):** `MockXStock` + `RwaCollateral` — lock tokenized stock to boost effective advance limit (`tier + min(value, cap)`); unlock blocked while advance/lien open. See `docs/SUBMISSION.md`.
+- **Shipped (OKX AI Build-a-Company):** `services/mcp-server` A2MCP tools `get_score/get_pool/get_quote` over HTTP + MCP JSON-RPC with x402 paid/free modes.
 - **Shipped (stretch, outside core claim):** WorkEscrow buyer-escrow module with router-integrated release.
 - **Shipped (production hardening):** vault sig-only mode + 6-decimal assertion + global outstanding cap + risk timelock; passport multi-attester quorum + identity-registry hook; `CreditAdmin` multisig-timelock; orchestrator EIP-712 sig path (`BORROWER_PRIVATE_KEY`).
 - **Shipped (planned modules, v1):** `AgentIdentity` (cross-wallet linkage), `ComputeFutures` (pre-sold tranches settled via router), `FacilitatorAdapter` (x402 intent record + router fallback; never claims facilitator settlement on X Layer).
